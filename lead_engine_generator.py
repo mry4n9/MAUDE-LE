@@ -301,17 +301,23 @@ The content should create urgency and clearly communicate the next steps for int
     def chat_with_gpt(self, prompt):
         """Send prompt to OpenAI API and get response"""
         try:
+            print(f"Sending request to OpenAI API using model: gpt-4.1-nano")
             resp = self.client.chat.completions.create(
                 model="gpt-4.1-nano", # Using the specified nano model as requested
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=4000
             )
-            return resp.choices[0].message.content
+            content = resp.choices[0].message.content
+            print(f"Received response from OpenAI API ({len(content)} chars)")
+            # Print a preview of the response for debugging
+            preview = content[:100] + "..." if len(content) > 100 else content
+            print(f"Response preview: {preview}")
+            return content
         except Exception as e:
             print(f"Error calling OpenAI API: {str(e)}")
-            # Instead of raising the exception, provide a clear error message
-            return '{"error": "Failed to get response from OpenAI API"}'
+            # Raise the exception to make the error more visible
+            raise
 
     def extract_json(self, text):
         """Extract JSON from the model response"""

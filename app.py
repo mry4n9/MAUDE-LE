@@ -209,8 +209,44 @@ def generate_content():
         details_text.markdown("<div class='status-text'>Extracting company information and value propositions...</div>", unsafe_allow_html=True)
         progress_bar.progress(20)
         
+        # Checking if the model is available - test with a simple request
+        status_text.text("Testing OpenAI API connection...")
+        try:
+            test_response = generator.client.chat.completions.create(
+                model="gpt-4.1-nano",
+                messages=[{"role": "user", "content": "Say hello"}],
+                max_tokens=10
+            )
+            details_text.markdown("<div class='status-text'>API connection successful!</div>", unsafe_allow_html=True)
+        except Exception as e:
+            error_message = str(e)
+            details_text.markdown(f"<div class='status-text' style='color:red;'>API connection failed: {error_message}</div>", unsafe_allow_html=True)
+            if "The model" in error_message and "does not exist" in error_message:
+                status_text.error("The model 'gpt-4.1-nano' doesn't exist or isn't available with your API key.")
+                st.error("Please update the model name in the code or use a different API key with access to this model.")
+                return False
+            else:
+                status_text.error("OpenAI API connection failed. Please check your API key and try again.")
+                return False
+                
+        progress_bar.progress(25)
+        
         # Generate the content - actual function call
+        status_text.text("Generating marketing funnel content...")
+        details_text.markdown("<div class='status-text'>This may take a few minutes. Generating creative content for all funnel stages...</div>", unsafe_allow_html=True)
+        
         success = generator.generate_funnel_content(website_url, pdf_url, num_posts, channel_options)
+        
+        # After generation, check if we actually got content
+        content_count = 0
+        for channel in generator.funnel_content:
+            for stage in generator.funnel_content[channel]:
+                content_count += len(generator.funnel_content[channel][stage])
+        
+        if content_count == 0:
+            status_text.error("No content was generated. Check the logs for errors.")
+            details_text.markdown("<div class='status-text' style='color:red;'>The API calls may have failed or returned invalid responses. Try with a different model or API key.</div>", unsafe_allow_html=True)
+            return False
         
         if success:
             # Store the funnel content in session state
@@ -240,7 +276,7 @@ def generate_content():
             
     except Exception as e:
         status_text.error(f"Error: {str(e)}")
-        details_text.empty()
+        details_text.markdown(f"<div class='status-text' style='color:red;'>Details: {str(e)}</div>", unsafe_allow_html=True)
         progress_bar.progress(100)
         return False
 
