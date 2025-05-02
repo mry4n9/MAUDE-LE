@@ -12,7 +12,7 @@ import time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# for Python and streamlit?
+# for Python and streamlit? #paste but did I do it correct?
 
 class LeadEngineGenerator:
     def __init__(self, api_key):
@@ -190,18 +190,25 @@ class LeadEngineGenerator:
                     
                     # Get response from GPT
                     try:
-                        # Initialize response variable
-                        raw_response = ""
-                        
-                        # Make API call
+                        # Make API call - no need to initialize raw_response separately
+                        # as we'll handle errors in chat_with_gpt
                         raw_response = self.chat_with_gpt(prompt)
+                        
+                        # If chat_with_gpt returned an error string
+                        if isinstance(raw_response, str) and raw_response.startswith("ERROR:"):
+                            print(f"    ✗ API error: {raw_response[6:]}")
+                            continue
                         
                         # Parse JSON response
                         try:
                             data = self.extract_json(raw_response)
                         except json.JSONDecodeError as json_err:
                             print(f"    ✗ JSON parsing error: {str(json_err)}")
-                            print(f"    Raw response preview: {raw_response[:100]}...")
+                            print(f"    Raw response preview: {raw_response[:100] if raw_response else 'No response'}...")
+                            continue
+                        except ValueError as val_err:
+                            print(f"    ✗ Value error: {str(val_err)}")
+                            print(f"    Raw response preview: {raw_response[:100] if raw_response else 'No response'}...")
                             continue
                         
                         # Convert to list if it's a dictionary
@@ -214,13 +221,9 @@ class LeadEngineGenerator:
                         
                         print(f"    ✓ Generated {len(posts)} {stage} posts")
                         
-                    except openai.APIError as api_err:
-                        print(f"    ✗ OpenAI API error: {str(api_err)}")
-                        continue
                     except Exception as e:
                         print(f"    ✗ Unexpected error: {str(e)}")
-                        if raw_response:
-                            print(f"    Raw response preview: {raw_response[:100]}...")
+                        # Don't try to access raw_response here, as it might not be defined
                         continue
             
             # Calculate and display the elapsed time
@@ -337,10 +340,17 @@ The content should create urgency and clearly communicate the next steps for int
             return resp.choices[0].message.content
         except Exception as e:
             print(f"Error calling OpenAI API: {str(e)}")
-            raise
-
+            # Instead of just raising the error, return a clear error message
+            # that can be handled safely
+            return f"ERROR: {str(e)}"
+            
     def extract_json(self, text):
         """Extract JSON from the model response"""
+        # Check if we received an error message from chat_with_gpt
+        if text.startswith("ERROR:"):
+            # Re-raise as a specific exception type with the original message
+            raise ValueError(f"Failed to get valid response from API: {text[6:]}")
+            
         # Try to find JSON using regex pattern
         json_pattern = r'```(?:json)?\s*(\[.*\]|\{.*\})\s*```'
         match = re.search(json_pattern, text, re.DOTALL)
