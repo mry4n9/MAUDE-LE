@@ -10,7 +10,7 @@ import base64
 from lead_engine_generator import LeadEngineGenerator
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-# For web app
+# For web app on streamlit
 
 # Set page configuration
 st.set_page_config(
