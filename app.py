@@ -7,10 +7,9 @@ import json
 import re
 import io
 import base64
-from lead_engine_generator import LeadEngineGenerator
+from lead_engine_generator import LeadEngineGenerator  # Make sure this file is in the same directory
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-# For web app on streamlit
 
 # Set page configuration
 st.set_page_config(
@@ -20,9 +19,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hardcoded API key - Replace this with your actual API key
-import streamlit as st
-openai.api_key = st.secrets["openai_api_key"]
+# Get API key from secrets
+if "openai_api_key" in st.secrets:
+    openai.api_key = st.secrets["openai_api_key"]
+else:
+    # Fallback for local development
+    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+    if openai_api_key:
+        openai.api_key = openai_api_key
+    else:
+        st.warning("Please enter an OpenAI API key to continue")
+        st.stop()
 
 # Custom CSS for styling
 st.markdown("""
@@ -181,7 +188,11 @@ def generate_content():
     try:
         # Initialize the generator
         status_text.text("Initializing Lead Engine Generator...")
-        generator = LeadEngineGenerator(st.secrets["openai_api_key"])
+        
+        # This line was the potential issue - Make sure we pass the correct API key
+        api_key = st.secrets["openai_api_key"] if "openai_api_key" in st.secrets else openai_api_key
+        generator = LeadEngineGenerator(api_key)
+        
         st.session_state.generator = generator
         progress_bar.progress(10)
         
@@ -198,24 +209,7 @@ def generate_content():
         details_text.markdown("<div class='status-text'>Extracting company information and value propositions...</div>", unsafe_allow_html=True)
         progress_bar.progress(20)
         
-        # Update progress as we go through the funnel generation
-        # These are just placeholders - actual implementation would depend on how LeadEngineGenerator works
-        time.sleep(1)  # Simulating analysis time
-        status_text.text("Generating brand content...")
-        details_text.markdown("<div class='status-text'>Creating value propositions and brand messaging...</div>", unsafe_allow_html=True)
-        progress_bar.progress(40)
-        
-        time.sleep(1)  # Simulating generation time
-        status_text.text("Generating demand generation content...")
-        details_text.markdown("<div class='status-text'>Creating educational posts and thought leadership content...</div>", unsafe_allow_html=True)
-        progress_bar.progress(60)
-        
-        time.sleep(1)  # Simulating generation time
-        status_text.text("Generating demand capture content...")
-        details_text.markdown("<div class='status-text'>Creating conversion-focused posts with strong CTAs...</div>", unsafe_allow_html=True)
-        progress_bar.progress(80)
-        
-        # Generate content
+        # Generate the content - actual function call
         success = generator.generate_funnel_content(website_url, pdf_url, num_posts, channel_options)
         
         if success:
@@ -559,4 +553,4 @@ with main_content:
 
 # Footer
 st.markdown("---")
-st.markdown("Made with ❤️ by Lead Engine Content Generator | Powered by GrøntsagssmoothieI")
+st.markdown("Made with ❤️ by Lead Engine Content Generator | Powered by OpenAI")

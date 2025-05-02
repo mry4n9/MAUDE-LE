@@ -12,8 +12,6 @@ import time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# for Python and streamlit? #before fixing bug
-
 class LeadEngineGenerator:
     def __init__(self, api_key):
         self.client = openai.OpenAI(api_key=api_key)
@@ -302,7 +300,7 @@ The content should create urgency and clearly communicate the next steps for int
         """Send prompt to OpenAI API and get response"""
         try:
             resp = self.client.chat.completions.create(
-                model="gpt-4.1-nano",  # Using cheaper model for testing
+                model="gpt-4.1-nano", # Using the specified nano model as requested
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=4000
