@@ -12,7 +12,7 @@ import time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
-# for Python and streamlit? #paste but did I do it correct?
+# for Python and streamlit? #before fixing bug
 
 class LeadEngineGenerator:
     def __init__(self, api_key):
@@ -144,99 +144,69 @@ class LeadEngineGenerator:
         import time
         start_time = time.time()
         
-        # Input validation
-        if not website_url:
-            print("Error: Website URL is required")
-            return False
-            
         # Default channels if not specified
         if channels is None:
             channels = ["LinkedIn", "Facebook"]
         
-        try:
-            # Scrape website content - only if not already cached
-            print(f"Preparing website data: {website_url}")
-            website_data = self.scrape_website(website_url)
-            if not website_data:
-                print("Error: Failed to scrape website data")
-                return False
-            
-            # Extract PDF content if provided - only if not already cached
-            pdf_content = None
-            if pdf_url:
-                print(f"Preparing PDF content from: {pdf_url}")
-                pdf_content = self.extract_pdf_content(pdf_url)
-            
-            company_name = website_data['company_name']
-            print(f"Generating content funnel for {company_name}...")
-            
-            # Store company data
-            self.extracted_data[company_name] = {}
-            
-            # Initialize funnel content dictionary for each channel
-            for channel in channels:
-                self.funnel_content[channel] = {}
-            
-            # Generate content for each funnel stage and channel
-            funnel_stages = ["Brand", "Demand Gen", "Demand Capture"]
-            
-            for channel in channels:
-                print(f"\nGenerating content for {channel}...")
-                
-                for stage in funnel_stages:
-                    print(f"  Generating {stage} content...")
-                    # Create prompt based on the funnel stage and channel
-                    prompt = self._create_funnel_stage_prompt(stage, num_posts, website_data, pdf_content, channel)
-                    
-                    # Get response from GPT
-                    try:
-                        # Make API call - no need to initialize raw_response separately
-                        # as we'll handle errors in chat_with_gpt
-                        raw_response = self.chat_with_gpt(prompt)
-                        
-                        # If chat_with_gpt returned an error string
-                        if isinstance(raw_response, str) and raw_response.startswith("ERROR:"):
-                            print(f"    ✗ API error: {raw_response[6:]}")
-                            continue
-                        
-                        # Parse JSON response
-                        try:
-                            data = self.extract_json(raw_response)
-                        except json.JSONDecodeError as json_err:
-                            print(f"    ✗ JSON parsing error: {str(json_err)}")
-                            print(f"    Raw response preview: {raw_response[:100] if raw_response else 'No response'}...")
-                            continue
-                        except ValueError as val_err:
-                            print(f"    ✗ Value error: {str(val_err)}")
-                            print(f"    Raw response preview: {raw_response[:100] if raw_response else 'No response'}...")
-                            continue
-                        
-                        # Convert to list if it's a dictionary
-                        posts = data if isinstance(data, list) else [data]
-                        
-                        # Store in our data dictionary
-                        if channel not in self.funnel_content:
-                            self.funnel_content[channel] = {}
-                        self.funnel_content[channel][stage] = posts
-                        
-                        print(f"    ✓ Generated {len(posts)} {stage} posts")
-                        
-                    except Exception as e:
-                        print(f"    ✗ Unexpected error: {str(e)}")
-                        # Don't try to access raw_response here, as it might not be defined
-                        continue
-            
-            # Calculate and display the elapsed time
-            elapsed_time = time.time() - start_time
-            minutes, seconds = divmod(elapsed_time, 60)
-            print(f"\nContent generation completed in {int(minutes)} minutes and {int(seconds)} seconds")
-            
-            return True
-            
-        except Exception as e:
-            print(f"Critical error in content generation: {str(e)}")
-            return False  
+        # Scrape website content - only if not already cached
+        print(f"Preparing website data: {website_url}")
+        website_data = self.scrape_website(website_url)
+        if not website_data:
+            return False
         
+        # Extract PDF content if provided - only if not already cached
+        pdf_content = None
+        if pdf_url:
+            print(f"Preparing PDF content from: {pdf_url}")
+            pdf_content = self.extract_pdf_content(pdf_url)
+        
+        company_name = website_data['company_name']
+        print(f"Generating content funnel for {company_name}...")
+        
+        # Store company data
+        self.extracted_data[company_name] = {}
+        
+        # Initialize funnel content dictionary for each channel
+        for channel in channels:
+            self.funnel_content[channel] = {}
+        
+        # Generate content for each funnel stage and channel
+        funnel_stages = ["Brand", "Demand Gen", "Demand Capture"]
+        
+        for channel in channels:
+            print(f"\nGenerating content for {channel}...")
+            
+            for stage in funnel_stages:
+                print(f"  Generating {stage} content...")
+                # Create prompt based on the funnel stage and channel
+                prompt = self._create_funnel_stage_prompt(stage, num_posts, website_data, pdf_content, channel)
+                
+                # Get response from GPT
+                try:
+                    raw_response = self.chat_with_gpt(prompt)
+                    data = self.extract_json(raw_response)
+                    
+                    # Convert to list if it's a dictionary
+                    posts = data if isinstance(data, list) else [data]
+                    
+                    # Store in our data dictionary
+                    if channel not in self.funnel_content:
+                        self.funnel_content[channel] = {}
+                    self.funnel_content[channel][stage] = posts
+                    
+                    print(f"    ✓ Generated {len(posts)} {stage} posts")
+                    
+                except Exception as e:
+                    print(f"    ✗ Error generating {stage} content: {str(e)}")
+                    print(f"    Raw response preview: {raw_response[:100]}...")
+        
+        # Calculate and display the elapsed time
+        elapsed_time = time.time() - start_time
+        minutes, seconds = divmod(elapsed_time, 60)
+        print(f"\nContent generation completed in {int(minutes)} minutes and {int(seconds)} seconds")
+        
+        return True
+    
     def _create_funnel_stage_prompt(self, stage, count, website_data, pdf_content=None, channel="LinkedIn"):
         """Create a tailored prompt for each funnel stage and channel"""
         company = website_data['company_name']
@@ -340,17 +310,10 @@ The content should create urgency and clearly communicate the next steps for int
             return resp.choices[0].message.content
         except Exception as e:
             print(f"Error calling OpenAI API: {str(e)}")
-            # Instead of just raising the error, return a clear error message
-            # that can be handled safely
-            return f"ERROR: {str(e)}"
-            
+            raise
+
     def extract_json(self, text):
         """Extract JSON from the model response"""
-        # Check if we received an error message from chat_with_gpt
-        if text.startswith("ERROR:"):
-            # Re-raise as a specific exception type with the original message
-            raise ValueError(f"Failed to get valid response from API: {text[6:]}")
-            
         # Try to find JSON using regex pattern
         json_pattern = r'```(?:json)?\s*(\[.*\]|\{.*\})\s*```'
         match = re.search(json_pattern, text, re.DOTALL)
