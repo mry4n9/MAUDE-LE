@@ -196,7 +196,9 @@ class LeadEngineGenerator:
                     
                 except Exception as e:
                     print(f"    ✗ Error generating {stage} content: {str(e)}")
-                    print(f"    Raw response preview: {raw_response[:100]}...")
+                    # Don't try to access raw_response if it wasn't successfully created
+                    self.funnel_content[channel][stage] = []  # Create empty list for this stage
+                    continue  # Skip to the next stage
         
         # Calculate and display the elapsed time
         elapsed_time = time.time() - start_time
@@ -308,46 +310,56 @@ The content should create urgency and clearly communicate the next steps for int
             return resp.choices[0].message.content
         except Exception as e:
             print(f"Error calling OpenAI API: {str(e)}")
-            raise
+            # Instead of raising the exception, provide a clear error message
+            return '{"error": "Failed to get response from OpenAI API"}'
 
     def extract_json(self, text):
         """Extract JSON from the model response"""
-        # Try to find JSON using regex pattern
-        json_pattern = r'```(?:json)?\s*(\[.*\]|\{.*\})\s*```'
-        match = re.search(json_pattern, text, re.DOTALL)
-
-        if match:
-            # Extract JSON from code blocks
-            json_str = match.group(1)
-        else:
-            # Try to extract JSON without code blocks
-            # Find the first opening bracket ([ or {)
-            start_idx = min((text.find('{'), text.find('[')), key=lambda x: float('inf') if x == -1 else x)
-            if start_idx == -1:
-                raise ValueError("No JSON found in the response")
-                
-            # Find the matching closing bracket
-            if text[start_idx] == '{':
-                end_char = '}'
-            else:
-                end_char = ']'
-                
-            # Find the last closing bracket
-            end_idx = text.rfind(end_char) + 1
-            if end_idx == 0:
-                raise ValueError(f"No matching closing bracket {end_char} found")
-                
-            json_str = text[start_idx:end_idx]
-        
-        # Parse the JSON
         try:
-            return json.loads(json_str)
-        except json.JSONDecodeError:
-            # Try to fix common JSON issues
-            json_str = json_str.replace("'", '"')
-            json_str = re.sub(r',\s*}', '}', json_str)
-            json_str = re.sub(r',\s*]', ']', json_str)
-            return json.loads(json_str)
+            # Check if text is an error message (from chat_with_gpt error handling)
+            if text.startswith('{"error":'):
+                return []
+                
+            # Try to find JSON using regex pattern
+            json_pattern = r'```(?:json)?\s*(\[.*\]|\{.*\})\s*```'
+            match = re.search(json_pattern, text, re.DOTALL)
+
+            if match:
+                # Extract JSON from code blocks
+                json_str = match.group(1)
+            else:
+                # Try to extract JSON without code blocks
+                # Find the first opening bracket ([ or {)
+                start_idx = min((text.find('{'), text.find('[')), key=lambda x: float('inf') if x == -1 else x)
+                if start_idx == -1:
+                    return []  # Return empty list instead of raising error
+                    
+                # Find the matching closing bracket
+                if text[start_idx] == '{':
+                    end_char = '}'
+                else:
+                    end_char = ']'
+                    
+                # Find the last closing bracket
+                end_idx = text.rfind(end_char) + 1
+                if end_idx == 0:
+                    return []  # Return empty list instead of raising error
+                    
+                json_str = text[start_idx:end_idx]
+            
+            # Parse the JSON
+            try:
+                return json.loads(json_str)
+            except json.JSONDecodeError:
+                # Try to fix common JSON issues
+                json_str = json_str.replace("'", '"')
+                json_str = re.sub(r',\s*}', '}', json_str)
+                json_str = re.sub(r',\s*]', ']', json_str)
+                return json.loads(json_str)
+        except Exception as e:
+            print(f"Error extracting JSON: {str(e)}")
+            print(f"Text received: {text[:200]}...")  # Log a preview of the text
+            return []  # Return empty list on any error
     
     def export_to_excel(self):
         """Save generated content to Excel file with structured funnel format"""
