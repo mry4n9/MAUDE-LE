@@ -20,7 +20,8 @@ st.set_page_config(
 )
 
 # Hardcoded API key - Replace this with your actual API key
-OPENAI_API_KEY = "your-api-key-goes-here"
+import streamlit as st
+openai.api_key = st.secrets["openai_api_key"]
 
 # Custom CSS for styling
 st.markdown("""
