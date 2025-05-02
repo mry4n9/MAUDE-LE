@@ -181,7 +181,7 @@ def generate_content():
     try:
         # Initialize the generator
         status_text.text("Initializing Lead Engine Generator...")
-        generator = LeadEngineGenerator(OPENAI_API_KEY)
+        generator = LeadEngineGenerator(st.secrets["openai_api_key"])
         st.session_state.generator = generator
         progress_bar.progress(10)
         
