@@ -19,17 +19,30 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Get API key from secrets
-if "openai_api_key" in st.secrets:
-    openai.api_key = st.secrets["openai_api_key"]
-else:
-    # Fallback for local development
-    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+# API key management
+st.sidebar.markdown("### OpenAI API Key")
+api_key_option = st.sidebar.radio("How would you like to provide your API key?", 
+                                ["Enter in sidebar", "Use from secrets"], index=0)
+
+if api_key_option == "Enter in sidebar":
+    openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password", 
+                                         help="Enter your OpenAI API key. It should start with 'sk-'")
     if openai_api_key:
-        openai.api_key = openai_api_key
+        if not openai_api_key.startswith('sk-'):
+            st.sidebar.error("API key should start with 'sk-'. Please check your key.")
+            st.stop()
     else:
-        st.warning("Please enter an OpenAI API key to continue")
+        st.sidebar.warning("Please enter an OpenAI API key to continue")
         st.stop()
+else:
+    if "openai_api_key" in st.secrets:
+        openai_api_key = st.secrets["openai_api_key"]
+        st.sidebar.success("Using API key from secrets")
+    else:
+        st.sidebar.error("No API key found in secrets. Please enter a key instead.")
+        openai_api_key = st.sidebar.text_input("OpenAI API Key", type="password")
+        if not openai_api_key:
+            st.stop()
 
 # Custom CSS for styling
 st.markdown("""
@@ -189,9 +202,8 @@ def generate_content():
         # Initialize the generator
         status_text.text("Initializing Lead Engine Generator...")
         
-        # This line was the potential issue - Make sure we pass the correct API key
-        api_key = st.secrets["openai_api_key"] if "openai_api_key" in st.secrets else openai_api_key
-        generator = LeadEngineGenerator(api_key)
+        # Make sure we pass the API key from the sidebar or secrets
+        generator = LeadEngineGenerator(openai_api_key)
         
         st.session_state.generator = generator
         progress_bar.progress(10)
@@ -212,8 +224,11 @@ def generate_content():
         # Checking if the model is available - test with a simple request
         status_text.text("Testing OpenAI API connection...")
         try:
-            test_response = generator.client.chat.completions.create(
-                model="gpt-4.1-nano",
+            # Set the openai client API key
+            openai.api_key = openai_api_key
+            
+            test_response = openai.chat.completions.create(
+                model="gpt-3.5-turbo",  # Use this for testing as it's widely available
                 messages=[{"role": "user", "content": "Say hello"}],
                 max_tokens=10
             )
@@ -221,8 +236,12 @@ def generate_content():
         except Exception as e:
             error_message = str(e)
             details_text.markdown(f"<div class='status-text' style='color:red;'>API connection failed: {error_message}</div>", unsafe_allow_html=True)
-            if "The model" in error_message and "does not exist" in error_message:
-                status_text.error("The model 'gpt-4.1-nano' doesn't exist or isn't available with your API key.")
+            if "invalid_api_key" in error_message or "Incorrect API key" in error_message:
+                status_text.error("Invalid API key. Please check your API key and try again.")
+                st.error("Make sure you're using a valid OpenAI API key that starts with 'sk-'")
+                return False
+            elif "The model" in error_message and "does not exist" in error_message:
+                status_text.error("The model doesn't exist or isn't available with your API key.")
                 st.error("Please update the model name in the code or use a different API key with access to this model.")
                 return False
             else:

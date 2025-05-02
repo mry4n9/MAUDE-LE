@@ -301,9 +301,9 @@ The content should create urgency and clearly communicate the next steps for int
     def chat_with_gpt(self, prompt):
         """Send prompt to OpenAI API and get response"""
         try:
-            print(f"Sending request to OpenAI API using model: gpt-4.1-nano")
+            print(f"Sending request to OpenAI API using model: gpt-3.5-turbo")
             resp = self.client.chat.completions.create(
-                model="gpt-4.1-nano", # Using the specified nano model as requested
+                model="gpt-3.5-turbo", # Using a widely available model
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=4000
